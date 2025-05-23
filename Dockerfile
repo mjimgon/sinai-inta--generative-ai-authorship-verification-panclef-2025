@@ -12,6 +12,10 @@ RUN pip3 install -r requirements.txt
 RUN python -m spacy download en_core_web_sm
 RUN pip install xgboost
 
+RUN apt-get update && \
+    apt-get install -y podman && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --upgrade tira
 RUN tira-cli login --token 1410a8fb6ebef8ec2bf7b15178ff269b539cf158e4ef54019113fe5316713161
