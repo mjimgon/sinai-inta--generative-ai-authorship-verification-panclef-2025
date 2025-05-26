@@ -175,7 +175,6 @@ def evaluate_model_predictions(model, path_val, output_dir):
     X_val = df_val.drop(["id"],  axis=1)
     y_prob = model.predict_proba(X_val)[:, 1]  # Probabilities for class 1
     
-    output_dir = "./output"
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = output_dir + "/predicciones.jsonl"
