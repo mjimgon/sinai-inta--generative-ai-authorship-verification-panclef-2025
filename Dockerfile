@@ -1,35 +1,26 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
-RUN apt-get update
-RUN apt-get upgrade
-RUN apt-get install -y software-properties-common
-RUN add-apt-repository ppa:deadsnakes/ppa -y ; apt update & DEBIAN_FRONTEND=noninteractive  apt install -y python3.12  git
-RUN apt-get install -y python3-pip
-RUN apt-get install -y python3-venv
+RUN apt-get update && apt-get install -y python3 python3-pip && rm -rf /var/lib/apt/lists/*
 
-# Crea el entorno virtual en .venv
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
-RUN python3 -m venv .venv
+RUN python3 -m pip config set global.break-system-packages true
 
-ADD requirements.txt .
-# Change the default shell to bash
-SHELL ["/bin/bash", "-c"]
-# Activa el entorno y actualiza pip + instala requirements
-RUN source .venv/bin/activate && \
-    pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
-RUN source .venv/bin/activate && python -m spacy download en_core_web_sm
+COPY requirements.txt .
 
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
-COPY nltk_data /nltk_data
+RUN python3 -m spacy download en_core_web_sm
+
 ENV NLTK_DATA=/nltk_data
+RUN python3 -c "import nltk; nltk.download('stopwords'); nltk.download('punkt'); nltk.download('punkt_tab')"
+
+# COPY nltk_data /nltk_data
 
 COPY .git .
-COPY modelo_tfid_todo.pkl .
-COPY val.jsonl .
+COPY ./modelo_sin_contextual.pkl .
+# COPY val.jsonl .
 COPY modelo.py .
 COPY modelo_final.py .
 
-
-
+ENV HF_HUB_OFFLINE=1
+ENTRYPOINT ["python3", "modelo_final.py", "$inputDataset/dataset.jsonl", "$outputDir"]
 
