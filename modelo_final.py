@@ -3,57 +3,20 @@
 import pandas as pd
 import os
 import json
-os.environ['NLTK_DATA'] = '/nltk_data'  # Debe coincidir con la ruta en el contenedor
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
-import nltk
 from sklearn.feature_extraction.text import TfidfVectorizer
 import spacy
 import textstat
 from nltk import word_tokenize
-from collections import Counter
-import joblib  
-from sklearn.metrics import classification_report
-import joblib  
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import brier_score_loss
-import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score, confusion_matrix
+import joblib
 import pandas as pd
 import json
 from sklearn.feature_extraction.text import TfidfVectorizer
-import joblib 
 import sys
 
-# Optional: fallback download
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords', download_dir=os.environ['NLTK_DATA'])
-
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt', download_dir=os.environ['NLTK_DATA'])
-
-    
-try:
-    nltk.data.find('tokenizers/punkt_tab')
-except LookupError:
-    nltk.download('punkt_tab', download_dir=os.environ['NLTK_DATA'])
 # Cargar modelos
 nlp = spacy.load("en_core_web_sm")
-
-
-def json_to_dataframe(json_file):
-    """
-    Convierte un archivo JSON en un DataFrame de pandas.
-    """
-    with open(json_file, 'r', encoding='utf-8') as file:
-        data = [json.loads(line) for line in file]
-    
-    df = pd.DataFrame(data)
-    return df
 
 
 def calculate_lexical_diversity(df):
@@ -105,8 +68,6 @@ def calculate_lexical_frequency(df):
     
     return df
 
-import time
-
 
 def extract_lingfeat(text):
     doc = nlp(text)  
@@ -156,40 +117,9 @@ def extract_lingfeat(text):
         # "grammar_errors": num_errors
     }
 
-def f_05u(y_true, y_score):
-    mod_pred = []
-    for p in y_score:
-        if p == 0.5:
-            mod_pred.append(0)  # abstención tratada como falso negativo
-        else:
-            mod_pred.append(int(p > 0.5))
-    prec = precision_score(y_true, mod_pred)
-    rec = recall_score(y_true, mod_pred)
-    beta = 0.5
-    if prec + rec == 0:
-        return 0
-    return (1 + beta**2) * (prec * rec) / ((beta**2 * prec) + rec)
-
-
-def c_at_1(y_true, y_score, threshold=0.5):
-    import numpy as np
-    y_pred = (y_score > threshold).astype(int)
-    unanswered = (y_score == 0.5).astype(int)
-    n = len(y_true)
-    n_u = unanswered.sum()
-    
-    answered_mask = y_score != 0.5
-    n_c = ((y_pred == y_true) & answered_mask).sum()
-
-    acc = n_c / (n - n_u) if (n - n_u) > 0 else 0.0
-
-    return (1.0 / n) * (n_c + n_u * acc)
-
-
 def preparar_dataframe( json_file ):
     # 1. Cargamos los datos 
-
-    df = json_to_dataframe(json_file)
+    df = pd.read_json(json_file, lines=True)
     features_df = df['text'].apply(extract_lingfeat).apply(pd.Series)
 
     # Expandir la columna 'conteos' en columnas separadas
@@ -216,9 +146,15 @@ def preparar_dataframe( json_file ):
     df = calculate_lexical_diversity(df)
     df = calculate_lexical_frequency(df)
 
-    val_df = df.drop(['model', 'num_det', 'num_adj', 'num_nouns', 'num_adp',
-       'num_cconj', 'num_pron', 'num_x', 'num_aux', 'num_verbs', 'num_punct',
-       'num_adv', 'num_sconj', 'num_part', 'num_propn', 'num_space','proporcion_num_space'], axis=1)
+    val_df = df[['id', 'text', 'num_tokens', 'num_sentences', 'avg_sentence_length',
+       'avg_word_length', 'lexical_diversity', 'flesch_reading_ease',
+       'num_palabras',
+       'proporcion_num_det', 'proporcion_num_adj', 'proporcion_num_nouns',
+       'proporcion_num_adp', 'proporcion_num_cconj', 'proporcion_num_pron',
+       'proporcion_num_x', 'proporcion_num_aux', 'proporcion_num_verbs',
+       'proporcion_num_punct', 'proporcion_num_adv', 'proporcion_num_sconj',
+       'proporcion_num_part', 'proporcion_num_propn',
+       'lexical_frequency']]
     
     return val_df
 
@@ -236,17 +172,12 @@ def evaluate_model_predictions(model, path_val, output_dir):
         y_true, y_pred, y_prob
     """
     df_val = preparar_dataframe(path_val)
-    X_val = df_val.drop(["label", "id"],  axis=1)
-    y_val = df_val["label"]
-    y_true = y_val
-    y_pred = model.predict(X_val)
+    X_val = df_val.drop(["id"],  axis=1)
     y_prob = model.predict_proba(X_val)[:, 1]  # Probabilities for class 1
     
-    output_dir = "./output"
     os.makedirs(output_dir, exist_ok=True)
 
     output_path = output_dir + "/predicciones.jsonl"
-
     with open(output_path, "w") as f:
         for idx, prob in zip(df_val["id"], y_prob):
             record = {
@@ -254,38 +185,6 @@ def evaluate_model_predictions(model, path_val, output_dir):
                 "label": round(float(prob), 4)  # redondeo opcional
             }
             f.write(json.dumps(record) + "\n")
-
-
-    f05u = f_05u(y_true, y_prob)
-    cm = confusion_matrix(y_true, y_pred)
-    tn, fp, fn, tp = cm.ravel()
-    f1 = f1_score(y_true, y_pred)
-    c1_score = c_at_1(y_true, y_prob)
-    brier = brier_score_loss(y_true, y_prob)
-    brier_complement = 1 - brier
-    roc_auc = roc_auc_score(y_true, y_prob)
-    mean_score = np.mean([roc_auc, brier_complement, c1_score, f1, f05u])
-
-
-    dic_evaluacion = {
-        "roc-auc":float(roc_auc),
-        "brier":float(brier_complement),
-        "c@1": float(c1_score),
-        "f1": float(f1),
-        "f05u": float(f05u),
-        "mean": float(mean_score),
-        "confusion": [
-            [
-                float(tn),
-            float(fp)
-            ],
-            [
-            float(fn),
-                float(tp)
-            ]
-        ]
-    }
-    return dic_evaluacion
 
 def calculate_lexical_frequency(df):
     """
@@ -310,16 +209,12 @@ def calculate_lexical_frequency(df):
 
 
 if __name__ == "__main__":
-
     # Manejo de argumentos con validación
-    
-
     if len(sys.argv) < 3:
         print("Uso: python modelo_final.py <inputDataset> <outputDir>")
         sys.exit(1)
 
     inputDataset = sys.argv[1]
     output_dir = sys.argv[2]
-    modelo = joblib.load('modelo_tfid_todo.pkl') # Carga del modelo.
-    dic = evaluate_model_predictions(modelo, inputDataset, output_dir )
-    print(dic)
+    modelo = joblib.load('modelo_sin_contextual.pkl') # Carga del modelo.
+    evaluate_model_predictions(modelo, inputDataset, output_dir )
