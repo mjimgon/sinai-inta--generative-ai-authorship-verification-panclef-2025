@@ -179,7 +179,6 @@ def entrenar_modelo(json_file):
     syntactic = [col for col in df.columns if "proporcion_num_" in col]
     structural = ["num_sentences", "num_tokens", "avg_sentence_length", "avg_word_length"]
     lexical = ["lexical_diversity", "lexical_frequency"]
-    contextual = ["genre"]
     textual = "text"
 
     # Separar X e y
@@ -195,8 +194,7 @@ def entrenar_modelo(json_file):
             ("syn", "passthrough", syntactic),
             ("str", "passthrough", structural),
             ("lex", "passthrough", lexical),
-            ("context", OneHotEncoder(handle_unknown="ignore"), contextual)
-        ]), syntactic + structural + lexical + contextual),
+        ]), syntactic + structural + lexical ),
         ("text", TfidfVectorizer(), "text")
     ])
 

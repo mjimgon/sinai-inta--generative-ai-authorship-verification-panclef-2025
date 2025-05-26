@@ -217,5 +217,5 @@ if __name__ == "__main__":
 
     inputDataset = sys.argv[1]
     output_dir = sys.argv[2]
-    modelo = joblib.load('modelo_tfid_todo.pkl') # Carga del modelo.
+    modelo = joblib.load('modelo_sin_contextual.pkl') # Carga del modelo.
     evaluate_model_predictions(modelo, inputDataset, output_dir )

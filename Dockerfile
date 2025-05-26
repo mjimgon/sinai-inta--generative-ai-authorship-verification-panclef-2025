@@ -16,7 +16,7 @@ RUN python3 -c "import nltk; nltk.download('stopwords'); nltk.download('punkt');
 # COPY nltk_data /nltk_data
 
 COPY .git .
-COPY modelo_tfid_todo.pkl .
+COPY ./modelo_sin_contextual.pkl .
 # COPY val.jsonl .
 COPY modelo.py .
 COPY modelo_final.py .
