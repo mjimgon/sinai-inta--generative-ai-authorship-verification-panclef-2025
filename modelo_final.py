@@ -1,14 +1,15 @@
 # Pasos
 
 import pandas as pd
+import os
 import json
+os.environ['NLTK_DATA'] = '/nltk_data'  # Debe coincidir con la ruta en el contenedor
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 import nltk
 from sklearn.feature_extraction.text import TfidfVectorizer
 import spacy
 import textstat
-import language_tool_python
 from nltk import word_tokenize
 from collections import Counter
 import joblib  
@@ -23,13 +24,25 @@ import json
 from sklearn.feature_extraction.text import TfidfVectorizer
 import joblib 
 import sys
-import os
 
-nltk.download('stopwords')
-nltk.download('punkt_tab')
+# Optional: fallback download
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    nltk.download('stopwords', download_dir=os.environ['NLTK_DATA'])
+
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt', download_dir=os.environ['NLTK_DATA'])
+
+    
+try:
+    nltk.data.find('tokenizers/punkt_tab')
+except LookupError:
+    nltk.download('punkt_tab', download_dir=os.environ['NLTK_DATA'])
 # Cargar modelos
 nlp = spacy.load("en_core_web_sm")
-tool = language_tool_python.LanguageToolPublicAPI('en-US')
 
 
 def json_to_dataframe(json_file):
@@ -298,7 +311,14 @@ def calculate_lexical_frequency(df):
 
 if __name__ == "__main__":
 
-    inputDataset= sys.argv[1]
+    # Manejo de argumentos con validación
+    
+
+    if len(sys.argv) < 3:
+        print("Uso: python modelo_final.py <inputDataset> <outputDir>")
+        sys.exit(1)
+
+    inputDataset = sys.argv[1]
     output_dir = sys.argv[2]
     modelo = joblib.load('modelo_tfid_todo.pkl') # Carga del modelo.
     dic = evaluate_model_predictions(modelo, inputDataset, output_dir )

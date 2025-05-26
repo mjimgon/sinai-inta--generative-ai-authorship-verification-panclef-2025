@@ -1,25 +1,35 @@
-FROM python:3.12
+FROM ubuntu:22.04
 
-RUN pip3 install click tira
+RUN apt-get update
+RUN apt-get upgrade
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository ppa:deadsnakes/ppa -y ; apt update & DEBIAN_FRONTEND=noninteractive  apt install -y python3.12  git
+RUN apt-get install -y python3-pip
+RUN apt-get install -y python3-venv
 
-ADD modelo_final.py /
-ADD modelo_tfid_todo.pkl /
-ADD val.jsonl / 
-ADD requirements.txt /
-ADD modelo.py /
+# Crea el entorno virtual en .venv
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.12
+RUN python3 -m venv .venv
 
-RUN pip3 install -r requirements.txt
-RUN python -m spacy download en_core_web_sm
-RUN pip install xgboost
-
-RUN apt-get update && \
-    apt-get install -y podman && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN pip3 install --upgrade tira
-RUN tira-cli login --token 1410a8fb6ebef8ec2bf7b15178ff269b539cf158e4ef54019113fe5316713161
-RUN tira-cli verify-installation
+ADD requirements.txt .
+# Change the default shell to bash
+SHELL ["/bin/bash", "-c"]
+# Activa el entorno y actualiza pip + instala requirements
+RUN source .venv/bin/activate && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+RUN source .venv/bin/activate && python -m spacy download en_core_web_sm
 
 
-#ENTRYPOINT [ "/modelo_final.py" ]
+COPY nltk_data /nltk_data
+ENV NLTK_DATA=/nltk_data
+
+COPY .git .
+COPY modelo_tfid_todo.pkl .
+COPY val.jsonl .
+COPY modelo.py .
+COPY modelo_final.py .
+
+
+
+
